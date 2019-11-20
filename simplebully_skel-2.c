@@ -41,21 +41,27 @@ int main(int argc, char *argv[]) {
   int current_leader = 0;               // default initial leader node
   
   if(argc > 1) {
-  //////////////////////////////////
-  // YOUR CODE GOES HERE
+    //////////////////////////////////
+    // YOUR CODE GOES HERE
     // user input argv[1]: designated initial leader 
     current_leader = atoi(argv[1]);
     if(!(current_leader > 0)) {
       printf("error\n");
     }
-  // user input argv[2]: how many rounds to run the algorithm
+    // user input argv[2]: how many rounds to run the algorithm
     if(argc > 2) {
       MAX_ROUNDS = atoi(argv[2]);
       if(!(MAX_ROUNDS > 0)) {
         printf("error2\n");
       }
+      // user input argv[3]: packet trasnmission success/failure probability
+      if(argc == 4) {
+        TX_PROB = atof(argv[3]);
+        if((0.0 == TX_PROB) || ((0.0 > TX_PROB) || (1.0 < TX_PROB))) {
+          printf("error3\n");
+        }
+      }
     }
-  // user input argv[3]: packet trasnmission success/failure probability
   /////////////////////////////////
   } else {
     // call usage function
