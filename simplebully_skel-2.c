@@ -49,12 +49,12 @@ int main(int argc, char *argv[]) {
       printf("error\n");
     }
   // user input argv[2]: how many rounds to run the algorithm
-    // if(argc > 2) {
-    //   MAX_ROUNDS = atoi(argv[1]);
-    //   if(!(MAX_ROUNDS > 0)) {
-    //     printf("error2\n");
-    //   }
-    // }
+    if(argc > 2) {
+      MAX_ROUNDS = atoi(argv[2]);
+      if(!(MAX_ROUNDS > 0)) {
+        printf("error2\n");
+      }
+    }
   // user input argv[3]: packet trasnmission success/failure probability
   /////////////////////////////////
   } else {
