@@ -40,15 +40,26 @@ int main(int argc, char *argv[]) {
   int myrank, np;
   int current_leader = 0;               // default initial leader node
   
+  if(argc > 1) {
   //////////////////////////////////
   // YOUR CODE GOES HERE
-  // user input argv[1]: designated initial leader 
-  
+    // user input argv[1]: designated initial leader 
+    current_leader = atoi(argv[1]);
+    if(!(current_leader > 0)) {
+      printf("error\n");
+    }
   // user input argv[2]: how many rounds to run the algorithm
-  
+    // if(argc > 2) {
+    //   MAX_ROUNDS = atoi(argv[1]);
+    //   if(!(MAX_ROUNDS > 0)) {
+    //     printf("error2\n");
+    //   }
+    // }
   // user input argv[3]: packet trasnmission success/failure probability
   /////////////////////////////////
-    
+  } else {
+    // call usage function
+  }
   printf("\n*******************************************************************");
   printf("\n*******************************************************************");
   printf("\n Initialization parameters:: \n\tMAX_ROUNDS = %d \n\tinitial leader = %d \n\tTX_PROB = %f\n", MAX_ROUNDS, current_leader, TX_PROB);
