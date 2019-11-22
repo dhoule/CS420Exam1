@@ -6,7 +6,7 @@
   #include <time.h>
   #include <sys/time.h>
   #include <stdbool.h>
-  // #include <mpi.h>
+  #include <mpi.h>
   #include <unistd.h>
 
   #define ERROR_PROB 0.05         // probability of error in transmission ==> probability of packet loss
@@ -20,16 +20,16 @@
   #define LEADER_ELECTION_MSG_TAG 0002
   #define LEADER_ELECTION_RESULT_MSG_TAG 0003
 
-  // MPI_Comm comm = MPI_COMM_WORLD;
+  MPI_Comm comm = MPI_COMM_WORLD;
 
-  inline double get_prob() {
-      double prob = rand() / (double) RAND_MAX;       // number between [0.0, 1.0]
-      return prob;
-  }
+  // inline double get_prob() {
+  //     double prob = rand() / (double) RAND_MAX;       // number between [0.0, 1.0]
+  //     return prob;
+  // }
 
-  inline int generate_token() {
-      return rand() % MAX_TOKEN_VALUE;
-  }
+  // inline int generate_token() {
+  //     return rand() % MAX_TOKEN_VALUE;
+  // }
 
 
 #endif
