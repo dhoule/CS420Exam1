@@ -27,9 +27,9 @@
   //     return prob;
   // }
 
-  // inline int generate_token() {
-  //     return rand() % MAX_TOKEN_VALUE;
-  // }
+  inline int generate_token() {
+    return rand() % MAX_TOKEN_VALUE;
+  }
 
 
 #endif
