@@ -37,14 +37,13 @@ static void usage() {
 // }
 
 
-// bool try_leader_elect() {
-//   // first toss a coin: if prob > 0.5 then attempt to elect self as leader
-//   // Otherwise, just keep listening for any message
-//   double prob = rand() / (double) RAND_MAX;       // number between [0.0, 1.0]
-//   bool leader_elect = (prob > THRESHOLD);
-  
-//   return leader_elect;
-// }
+bool try_leader_elect() {
+  // first toss a coin: if prob > 0.5 then attempt to elect self as leader
+  // Otherwise, just keep listening for any message
+  double prob = rand() / (double) RAND_MAX;       // number between [0.0, 1.0]
+  bool leader_elect = (prob > THRESHOLD);
+  return leader_elect;
+}
 
 
 int main(int argc, char *argv[]) {
@@ -107,101 +106,111 @@ int main(int argc, char *argv[]) {
   int succ = (myrank + 1) % np; // succ = successor on ring;
   int pred = (myrank + np - 1) % np; // pred = predecessor on ring
   int recv_size, recv_count;
+  int round;
   int msg = HELLO_MSG;
-  // for (int round = 0; round < MAX_ROUNDS; round++) {
-  //  printf("\n*********************************** ROUND %d ******************************************\n", round);
+
+  for (round = 1; round <= MAX_ROUNDS; round++) {
+    
   
-  if (myrank == current_leader) {
-    MPI_Send(&msg, 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
-    printf("\n[Proc #%d] Sent msg: %d to processor %d with msg tag = %d of byte count = %d\n", myrank, msg, succ, HELLO_MSG_TAG, 1);
-    MPI_Probe(pred, HELLO_MSG_TAG, comm, &status);
-    MPI_Get_count(&status, MPI_INT, &recv_size);
-    MPI_Recv(&recv_count, recv_size, MPI_INT, pred, HELLO_MSG_TAG, comm, &status);
-    printf("\n[Proc #%d] Received msg: %d from processor %d with msg tag = %d of byte count = %d\n", myrank, recv_count, status.MPI_SOURCE, status.MPI_TAG, recv_size);
-  //           if (try_leader_elect()) {
-  //      // then send a leader election message to next node on ring, after
-  //      // generating a random token number. Largest token among all nodes will win.
+    if (myrank == current_leader) {
+      printf("\n*********************************** ROUND %d ******************************************\n", round);
+      
+      // MPI_Probe(pred, HELLO_MSG_TAG, comm, &status);
+      // MPI_Get_count(&status, MPI_INT, &recv_size);
+      // MPI_Recv(&recv_count, recv_size, MPI_INT, pred, HELLO_MSG_TAG, comm, &status);
+      // printf("\n[Proc #%d] Received msg: %d from processor %d with msg tag = %d of byte count = %d\n", myrank, recv_count, status.MPI_SOURCE, status.MPI_TAG, recv_size);
+      if (try_leader_elect()) {
+        mytoken = generate_token();
+        printf("\n[rank %d][%d] New leader started\ttoken: %d\n", myrank, round, mytoken);
+        fflush(stdout);
+        // then send a leader election message to next node on ring, after
+        // generating a random token number. Largest token among all nodes will win.
+        // TODO delete this
+        MPI_Send(&msg, 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
+        printf("\n[rank %d][%d] SENT HELLO MSG to node %d with TOKEN = %d, tag = %d\n", myrank, round, succ, mytoken, HELLO_MSG_TAG);
+        fflush(stdout);
+
+        // TODO uncomment this
+        // printf("\n[rank %d][%d] SENT LEADER ELECTION MSG to node %d with TOKEN = %d, tag = %d\n", myrank, round, succ, mytoken, LEADER_ELECTION_MSG_TAG);
+        // fflush(stdout);
+      } else {
+        // Otherwise, send a periodic HELLO message around the ring
+        MPI_Send(&msg, 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
+        printf("\n[rank %d][%d] SENT HELLO MSG to node %d with TOKEN = %d, tag = %d\n", myrank, round, succ, mytoken, HELLO_MSG_TAG);
+        fflush(stdout);
+      }
         
-  //      printf("\n[rank %d][%d] SENT LEADER ELECTION MSG to node %d with TOKEN = %d, tag = %d\n", myrank, round, succ, mytoken, LEADER_ELECTION_MSG_TAG);
-  //      fflush(stdout);
-  //    } else {
-  //      // Otherwise, send a periodic HELLO message around the ring
-      
-  //      printf("\n[rank %d][%d] SENT HELLO MSG to node %d with TOKEN = %d, tag = %d\n", myrank, round, succ, mytoken, HELLO_MSG_TAG);
-  //      fflush(stdout);
-  //    }
-    
-  //    // Now FIRST issue a speculative MPI_IRecv() to receive data back
-  //    int recv_buf[2];
-  //    bool flag = false;    // Will keep track of whether a message was received before time out
-  //    // YOUR CODE GOES HERE  
-    
-  //    // Next, you need to check if time out has occured. If time out, then you need to cancel the earlier issued speculative MPI_Irecv. 
-  //    // YOUR CODE GOES HERE 
-      
-  //    // We receive the message from predecessor node and decide appropriate action based on the message TAG
-  //    // YOUR CODE GOES HERE
-  //    if (flag) {
-  //      // If HELLO MSG received, do nothing
-  //      // If LEADER ELECTION message, then determine who is the new leader and send out a new leader notification message
-  //      switch (status.MPI_TAG) {
-  //        case HELLO_MSG_TAG:
-  //          printf("\n[rank %d][%d] HELLO MESSAGE completed ring traversal!\n", myrank, round);
-  //          fflush(stdout);
-  //          break;
-  //        case LEADER_ELECTION_MSG_TAG:
-  //          // Send a new leader message
-  //          printf("\n[rank %d][%d] NEW LEADER FOUND! new leader = %d, with token = %d\n", myrank, round, current_leader, recv_buf[1]);
-  //          fflush(stdout);
-  //          break;
-  //        default: ;  // do nothing
-  //      }
-  //    }
-  } else {
-    MPI_Probe(pred, HELLO_MSG_TAG, comm, &status);
-    MPI_Get_count(&status, MPI_INT, &recv_size);
-    MPI_Recv(&recv_count, 1, MPI_INT, pred, HELLO_MSG_TAG, comm, &status);
-    printf("\n[Proc #%d] Received msg: %d from processor %d with msg tag = %d of byte count = %d\n", myrank, recv_count, status.MPI_SOURCE, status.MPI_TAG, recv_size);
-    MPI_Send(&msg, 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
-    printf("\n[Proc #%d] Sent msg: %d to processor %d with msg tag = %d of byte count = %d\n", myrank, msg, succ, HELLO_MSG_TAG, 1);
-  //    // Wait for a message to arrive until time out occurs
-  //    // YOUR CODE GOES HERE 
-
-  //    if ( ) {
-  //      // You want to first receive the message so as to remove it from the MPI Buffer 
-  //      // Then determine action depending on the message Tag field
-  //      // YOUR CODE GOES HERE
-
-  //      if (status.MPI_TAG == HELLO_MSG_TAG) {
-  //        // Forward the message to next node
-  //        printf("\n\t[rank %d][%d] Received and Forwarded HELLO MSG to next node = %d\n", myrank, round, succ);
-  //        fflush(stdout);
-  //      } else if (status.MPI_TAG == LEADER_ELECTION_MSG_TAG) {
-  //        // Fist probabilistically see if wants to become a leader.
-  //        // If yes, then generate own token and test if can become leader.
-  //        // If can become leader, then update the LEADER ELECTION Message appropriately and retransmit to next node
-  //        // Otherwise, just forward the original received LEADER ELECTION Message
-  //        // With a probability 'p', forward the message to next node
-  //        // This simulates link or node failure in a distributed system
-  //        if ( ) {
-  //          printf("\n\t[rank %d][%d] My new TOKEN = %d\n", myrank, round, mytoken);
-  //          fflush(stdout);
-  //        } else {
-  //          printf("\n\t[rank %d][%d] Will not participate in Leader Election.\n", myrank, round);
-  //          fflush(stdout);
-  //        }
-
-  //        // Forward the LEADER ELECTION Message
-
-  //        // Finally, wait to hear from current leader who will be the next leader
-  //        printf("\n\t[rank %d][%d] NEW LEADER :: node %d with TOKEN = %d\n", myrank, round, current_leader, recv_buf[1]);
-  //        fflush(stdout);
+      //    // Now FIRST issue a speculative MPI_IRecv() to receive data back
+      //    int recv_buf[2];
+      //    bool flag = false;    // Will keep track of whether a message was received before time out
+      //    // YOUR CODE GOES HERE  
+        
+      //    // Next, you need to check if time out has occured. If time out, then you need to cancel the earlier issued speculative MPI_Irecv. 
+      //    // YOUR CODE GOES HERE 
           
-  //        // Forward the LEADER ELECTION RESULT MESSAGE
-  //      }   
-  //    } 
-  //  }
-  //  // Finally hit barrier for synchronization of all nodes before starting new round of message sending
+      //    // We receive the message from predecessor node and decide appropriate action based on the message TAG
+      //    // YOUR CODE GOES HERE
+      //    if (flag) {
+      //      // If HELLO MSG received, do nothing
+      //      // If LEADER ELECTION message, then determine who is the new leader and send out a new leader notification message
+      //      switch (status.MPI_TAG) {
+      //        case HELLO_MSG_TAG:
+      //          printf("\n[rank %d][%d] HELLO MESSAGE completed ring traversal!\n", myrank, round);
+      //          fflush(stdout);
+      //          break;
+      //        case LEADER_ELECTION_MSG_TAG:
+      //          // Send a new leader message
+      //          printf("\n[rank %d][%d] NEW LEADER FOUND! new leader = %d, with token = %d\n", myrank, round, current_leader, recv_buf[1]);
+      //          fflush(stdout);
+      //          break;
+      //        default: ;  // do nothing
+      //      }
+      //    }
+    } else {
+      // Wait for a message to arrive until time out occurs
+      // YOUR CODE GOES HERE 
+      MPI_Probe(pred, HELLO_MSG_TAG, comm, &status);
+      MPI_Get_count(&status, MPI_INT, &recv_size);
+      MPI_Recv(&recv_count, 1, MPI_INT, pred, HELLO_MSG_TAG, comm, &status);
+      printf("\n[Proc #%d] Received msg: %d from processor %d with msg tag = %d of byte count = %d\n", myrank, recv_count, status.MPI_SOURCE, status.MPI_TAG, recv_size);
+      MPI_Send(&msg, 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
+      printf("\n[Proc #%d] Sent msg: %d to processor %d with msg tag = %d of byte count = %d\n", myrank, msg, succ, HELLO_MSG_TAG, 1);
+      //    if ( ) {
+      //      // You want to first receive the message so as to remove it from the MPI Buffer 
+      //      // Then determine action depending on the message Tag field
+      //      // YOUR CODE GOES HERE
+
+      //      if (status.MPI_TAG == HELLO_MSG_TAG) {
+      //        // Forward the message to next node
+      //        printf("\n\t[rank %d][%d] Received and Forwarded HELLO MSG to next node = %d\n", myrank, round, succ);
+      //        fflush(stdout);
+      //      } else if (status.MPI_TAG == LEADER_ELECTION_MSG_TAG) {
+      //        // Fist probabilistically see if wants to become a leader.
+      //        // If yes, then generate own token and test if can become leader.
+      //        // If can become leader, then update the LEADER ELECTION Message appropriately and retransmit to next node
+      //        // Otherwise, just forward the original received LEADER ELECTION Message
+      //        // With a probability 'p', forward the message to next node
+      //        // This simulates link or node failure in a distributed system
+      //        if ( ) {
+      //          printf("\n\t[rank %d][%d] My new TOKEN = %d\n", myrank, round, mytoken);
+      //          fflush(stdout);
+      //        } else {
+      //          printf("\n\t[rank %d][%d] Will not participate in Leader Election.\n", myrank, round);
+      //          fflush(stdout);
+      //        }
+
+      //        // Forward the LEADER ELECTION Message
+
+      //        // Finally, wait to hear from current leader who will be the next leader
+      //        printf("\n\t[rank %d][%d] NEW LEADER :: node %d with TOKEN = %d\n", myrank, round, current_leader, recv_buf[1]);
+      //        fflush(stdout);
+              
+      //        // Forward the LEADER ELECTION RESULT MESSAGE
+      //      }   
+      //    } 
+    }
+    // Finally hit barrier for synchronization of all nodes before starting new round of message sending
+    MPI_Barrier(comm);
   }
   // printf("\n** Leader for NODE %d = %d\n", myrank, current_leader);
 
