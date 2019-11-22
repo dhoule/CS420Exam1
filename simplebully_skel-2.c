@@ -101,17 +101,24 @@ int main(int argc, char *argv[]) {
 
   // srand(get_PRNG_seed());   // HINT: COMMENT THIS LINE UNTIL YOU ARE SURE THAT YOUR CODE IS CORRECT. THIS WILL AID IN THE DEBUGGING PROCESS
     
-  int mytoken;
-
+  int mytoken = 1;
+  MPI_Status status;
   // YOUR CODE FOR SETTING UP succ and pred GOES HERE
   int succ = (myrank + 1) % np; // succ = successor on ring;
   int pred = (myrank + np - 1) % np; // pred = predecessor on ring
-
+  int recv_size, recv_count;
+  int msg = HELLO_MSG;
   // for (int round = 0; round < MAX_ROUNDS; round++) {
   //  printf("\n*********************************** ROUND %d ******************************************\n", round);
   
-  //  if (myrank == current_leader) {
- //           if (try_leader_elect()) {
+  if (myrank == current_leader) {
+    MPI_Send(&msg, 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
+    printf("\n[Proc #%d] Sent msg: %d to processor %d with msg tag = %d of byte count = %d\n", myrank, msg, succ, HELLO_MSG_TAG, 1);
+    MPI_Probe(pred, HELLO_MSG_TAG, comm, &status);
+    MPI_Get_count(&status, MPI_INT, &recv_size);
+    MPI_Recv(&recv_count, recv_size, MPI_INT, pred, HELLO_MSG_TAG, comm, &status);
+    printf("\n[Proc #%d] Received msg: %d from processor %d with msg tag = %d of byte count = %d\n", myrank, recv_count, status.MPI_SOURCE, status.MPI_TAG, recv_size);
+  //           if (try_leader_elect()) {
   //      // then send a leader election message to next node on ring, after
   //      // generating a random token number. Largest token among all nodes will win.
         
@@ -150,7 +157,13 @@ int main(int argc, char *argv[]) {
   //        default: ;  // do nothing
   //      }
   //    }
-  //  } else {
+  } else {
+    MPI_Probe(pred, HELLO_MSG_TAG, comm, &status);
+    MPI_Get_count(&status, MPI_INT, &recv_size);
+    MPI_Recv(&recv_count, 1, MPI_INT, pred, HELLO_MSG_TAG, comm, &status);
+    printf("\n[Proc #%d] Received msg: %d from processor %d with msg tag = %d of byte count = %d\n", myrank, recv_count, status.MPI_SOURCE, status.MPI_TAG, recv_size);
+    MPI_Send(&msg, 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
+    printf("\n[Proc #%d] Sent msg: %d to processor %d with msg tag = %d of byte count = %d\n", myrank, msg, succ, HELLO_MSG_TAG, 1);
   //    // Wait for a message to arrive until time out occurs
   //    // YOUR CODE GOES HERE 
 
@@ -189,7 +202,7 @@ int main(int argc, char *argv[]) {
   //    } 
   //  }
   //  // Finally hit barrier for synchronization of all nodes before starting new round of message sending
-  // }
+  }
   // printf("\n** Leader for NODE %d = %d\n", myrank, current_leader);
 
   // Finalize MPI for clean exit
