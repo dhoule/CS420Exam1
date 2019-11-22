@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <utils.h>
 #include "simplebully.h"
 
 
@@ -10,7 +9,7 @@ double TX_PROB = 1.0 - ERROR_PROB;    // probability of transmitting a packet su
 
 static void usage() {
   const char *params =
-  "Usage: -c current_leader -m rounds_to_run -t TX_pass/fail_prob\n"
+  "Usage: [-c current_leader] [-m rounds_to_run] [-t TX_pass/fail_prob]\n"
   " -c current_leader : integer value less than the number of procs\n"
   " -m MAX_ROUNDS     : number of rounds to run the algorithm\n"
   " -t TX_PROB        : packet trasnmission success/failure probability\n\n";
@@ -53,8 +52,7 @@ int main(int argc, char *argv[]) {
   int current_leader = 0;               // default initial leader node
   int opt; // used to parse the command line options
   // determine command line options
-  while ((opt=getopt(argc,argv,"::c::m::t"))!= EOF) {
-    printf("Made it here");
+  while ((opt=getopt(argc,argv,"c::m::t::"))!= EOF) {
     switch (opt) {
       case 'c':
         // user input argv[1]: designated initial leader 
@@ -72,14 +70,13 @@ int main(int argc, char *argv[]) {
         if(!(MAX_ROUNDS > 0)) {
           usage();
         }
+        break;
       case 't':
         // user input argv[3]: packet trasnmission success/failure probability
         TX_PROB = atof(optarg);
-        if((0.0 == TX_PROB) || ((0.0 > TX_PROB) || (1.0 < TX_PROB))) {
+        if((0.0 >= TX_PROB) || (1.0 <= TX_PROB)) {
           usage();
         }
-      case '?':
-        usage();
         break;
       default:
         usage();
