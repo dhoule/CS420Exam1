@@ -13,17 +13,18 @@ static void usage() {
   " -c current_leader : integer value less than the number of procs\n"
   " -m MAX_ROUNDS     : number of rounds to run the algorithm\n"
   " -t TX_PROB        : packet trasnmission success/failure probability\n\n";
-  printf("%s",params);
+  fprintf(stderr,"%s",params);
+  MPI_Finalize();
   exit(-1);
 }
 
-unsigned long int get_PRNG_seed() {
-  struct timeval tv;
-  gettimeofday(&tv,NULL);
-  unsigned long time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec + getpid();//find the microseconds for seeding srand()
+// unsigned long int get_PRNG_seed() {
+//   struct timeval tv;
+//   gettimeofday(&tv,NULL);
+//   unsigned long time_in_micros = 1000000 * tv.tv_sec + tv.tv_usec + getpid();//find the microseconds for seeding srand()
 
-  return time_in_micros;
-}        
+//   return time_in_micros;
+// }        
 
 // bool is_timeout(time_t start_time) {
 //   // YOUR CODE GOES HERE
@@ -36,14 +37,14 @@ unsigned long int get_PRNG_seed() {
 // }
 
 
-bool try_leader_elect() {
-  // first toss a coin: if prob > 0.5 then attempt to elect self as leader
-  // Otherwise, just keep listening for any message
-  double prob = rand() / (double) RAND_MAX;       // number between [0.0, 1.0]
-  bool leader_elect = (prob > THRESHOLD);
+// bool try_leader_elect() {
+//   // first toss a coin: if prob > 0.5 then attempt to elect self as leader
+//   // Otherwise, just keep listening for any message
+//   double prob = rand() / (double) RAND_MAX;       // number between [0.0, 1.0]
+//   bool leader_elect = (prob > THRESHOLD);
   
-  return leader_elect;
-}
+//   return leader_elect;
+// }
 
 
 int main(int argc, char *argv[]) {
@@ -51,18 +52,21 @@ int main(int argc, char *argv[]) {
   int myrank, np;
   int current_leader = 0;               // default initial leader node
   int opt; // used to parse the command line options
+  
+  // YOUR CODE FOR MPI Initiliazation GOES HERE 
+  MPI_Init(&argc, &argv);
+  MPI_Comm_size(comm, &np);
+  MPI_Comm_rank(comm, &myrank);
+
   // determine command line options
-  while ((opt=getopt(argc,argv,"c::m::t::"))!= EOF) {
+  while ((opt=getopt(argc,argv,"c:m:t:"))!= EOF) {
     switch (opt) {
       case 'c':
         // user input argv[1]: designated initial leader 
         current_leader = atoi(optarg);
-        if(!(current_leader > 0)) {
+        if(!(current_leader > 0) || (current_leader >= np)) {
           usage();
         }
-        // if(current_leader > np) {
-        //   usage();
-        // }
         break;
       case 'm':
         // user input argv[2]: how many rounds to run the algorithm
@@ -78,23 +82,27 @@ int main(int argc, char *argv[]) {
           usage();
         }
         break;
+      case '?':
+        usage();
+        break;
       default:
         usage();
     }
   }
 
-  printf("\n*******************************************************************");
-  printf("\n*******************************************************************");
-  printf("\n Initialization parameters:: \n\tMAX_ROUNDS = %d \n\tinitial leader = %d \n\tTX_PROB = %f\n", MAX_ROUNDS, current_leader, TX_PROB);
-  printf("\n*******************************************************************");
-  printf("\n*******************************************************************\n\n");
+  if(myrank == current_leader) {
+    printf("\n*******************************************************************");
+    printf("\n*******************************************************************");
+    printf("\n Initialization parameters:: \n\tMAX_ROUNDS = %d \n\tinitial leader = %d \n\tTX_PROB = %f\n", MAX_ROUNDS, current_leader, TX_PROB);
+    printf("\n*******************************************************************");
+    printf("\n*******************************************************************\n\n");
+  }
   
-  // YOUR CODE FOR MPI Initiliazation GOES HERE 
 
-  srand(get_PRNG_seed());   // HINT: COMMENT THIS LINE UNTIL YOU ARE SURE THAT YOUR CODE IS CORRECT. THIS WILL AID IN THE DEBUGGING PROCESS
+  // srand(get_PRNG_seed());   // HINT: COMMENT THIS LINE UNTIL YOU ARE SURE THAT YOUR CODE IS CORRECT. THIS WILL AID IN THE DEBUGGING PROCESS
     
-  int succ, pred;     // succ = successor on ring; pred = predecessor on ring
-  int mytoken;
+  // int succ, pred;     // succ = successor on ring; pred = predecessor on ring
+  // int mytoken;
 
   // YOUR CODE FOR SETTING UP succ and pred GOES HERE
 
@@ -184,5 +192,6 @@ int main(int argc, char *argv[]) {
   // printf("\n** Leader for NODE %d = %d\n", myrank, current_leader);
 
   // Finalize MPI for clean exit
+  MPI_Finalize();
   return 0;
 }
