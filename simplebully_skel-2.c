@@ -101,10 +101,11 @@ int main(int argc, char *argv[]) {
 
   // srand(get_PRNG_seed());   // HINT: COMMENT THIS LINE UNTIL YOU ARE SURE THAT YOUR CODE IS CORRECT. THIS WILL AID IN THE DEBUGGING PROCESS
     
-  // int succ, pred;     // succ = successor on ring; pred = predecessor on ring
-  // int mytoken;
+  int mytoken;
 
   // YOUR CODE FOR SETTING UP succ and pred GOES HERE
+  int succ = (myrank + 1) % np; // succ = successor on ring;
+  int pred = (myrank + np - 1) % np; // pred = predecessor on ring
 
   // for (int round = 0; round < MAX_ROUNDS; round++) {
   //  printf("\n*********************************** ROUND %d ******************************************\n", round);
