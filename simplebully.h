@@ -22,14 +22,14 @@
 
   MPI_Comm comm = MPI_COMM_WORLD;
 
-  // inline double get_prob() {
-  //     double prob = rand() / (double) RAND_MAX;       // number between [0.0, 1.0]
-  //     return prob;
-  // }
+  inline double get_prob() {
+    double prob = rand() / (double) RAND_MAX;       // number between [0.0, 1.0]
+    return prob;
+  }
 
-  // inline int generate_token() {
-  //     return rand() % MAX_TOKEN_VALUE;
-  // }
+  inline int generate_token() {
+    return rand() % MAX_TOKEN_VALUE;
+  }
 
 
 #endif
