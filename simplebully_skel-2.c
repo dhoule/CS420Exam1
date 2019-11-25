@@ -113,7 +113,8 @@ int main(int argc, char *argv[]) {
         fflush(stdout);
       } else {
         // Otherwise, send a periodic HELLO message around the ring
-      
+        msg[0] = HELLO_MSG;
+        MPI_Send(&msg[0], 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
         printf("\n[rank %d][%d] SENT HELLO MSG to node %d with TOKEN = %d, tag = %d\n", myrank, round, succ, mytoken, HELLO_MSG_TAG);
         fflush(stdout);
       }
