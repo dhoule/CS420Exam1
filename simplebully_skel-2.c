@@ -14,8 +14,15 @@ unsigned long int get_PRNG_seed() {
   return time_in_micros;
 }        
 
-bool is_timeout(time_t start_time) {
-  // YOUR CODE GOES HERE
+bool is_not_timeout(float start_time, int pred, MPI_Status *status) {
+  int flag = 0;    // Will keep track of whether a message was received before time out
+  while(!flag) {
+    // int MPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status)
+    MPI_Iprobe(pred, MPI_ANY_TAG, comm, &flag, status);
+    if((MPI_Wtime() - start_time) >= TIME_OUT_INTERVAL)
+      return false;
+  }
+  return true;
 }
 
 
@@ -94,8 +101,9 @@ int main(int argc, char *argv[]) {
   // YOUR CODE FOR SETTING UP succ and pred GOES HERE
   int succ = (myrank + 1) % np; // succ = successor on ring;
   int pred = (myrank + np - 1) % np; // pred = predecessor on ring
+  int recv_size;
   int round;
-
+  int msg[2];
 
   for (round = 0; round < MAX_ROUNDS; round++) {
     if (myrank == current_leader) {
@@ -147,24 +155,35 @@ int main(int argc, char *argv[]) {
       }
     } else {
       // Wait for a message to arrive until time out occurs
-      // YOUR CODE GOES HERE 
+      int recv_buf[2];
 
-      if ( ) {
+      if (is_not_timeout(MPI_Wtime(), pred, &status)) {
         // You want to first receive the message so as to remove it from the MPI Buffer 
         // Then determine action depending on the message Tag field
-        // YOUR CODE GOES HERE
-
+        MPI_Get_count(&status, MPI_INT, &recv_size);
+        // int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request)
+        MPI_Irecv(&recv_buf, recv_size, MPI_INT, pred, status.MPI_TAG, comm, &request);
+        MPI_Wait(&request, &status);
+        // determine type of msg Rx
         if (status.MPI_TAG == HELLO_MSG_TAG) {
           // Forward the message to next node
-          printf("\n\t[rank %d][%d] Received and Forwarded HELLO MSG to next node = %d\n", myrank, round, succ);
-          fflush(stdout);
+          // With a probability 'p', forward the message to next node
+          // This simulates link or node failure in a distributed system
+          if(get_prob() > TX_PROB) {
+            MPI_Send(&recv_buf[0], 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
+            printf("\n\t[rank %d][%d] Received and Forwarded HELLO MSG to next node = %d\n", myrank, round, succ);
+            fflush(stdout);
+          } else {
+            printf("\n\t[rank %d][%d] Not doing anything. This simulates link or node failure in a distributed system.\n", myrank, round);
+            fflush(stdout);
+          }
+          
         } else if (status.MPI_TAG == LEADER_ELECTION_MSG_TAG) {
           // Fist probabilistically see if wants to become a leader.
           // If yes, then generate own token and test if can become leader.
           // If can become leader, then update the LEADER ELECTION Message appropriately and retransmit to next node
           // Otherwise, just forward the original received LEADER ELECTION Message
-          // With a probability 'p', forward the message to next node
-          // This simulates link or node failure in a distributed system
+          
           if ( ) {
             printf("\n\t[rank %d][%d] My new TOKEN = %d\n", myrank, round, mytoken);
             fflush(stdout);
