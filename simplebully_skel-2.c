@@ -26,8 +26,11 @@ unsigned long int get_PRNG_seed() {
 }        
 
 bool is_not_timeout(float start_time, int pred, MPI_Status *status) {
+  int myrank;
+  MPI_Comm_rank(comm, &myrank);
   int flag = 0;    // Will keep track of whether a message was received before time out
   while(!flag) {
+    printf("\n\t[rank %d] In timeout loop.\n", myrank);
     // int MPI_Iprobe(int source, int tag, MPI_Comm comm, int *flag, MPI_Status *status)
     MPI_Iprobe(pred, MPI_ANY_TAG, comm, &flag, status);
     if((MPI_Wtime() - start_time) >= TIME_OUT_INTERVAL)
@@ -52,7 +55,7 @@ bool try_leader_elect() {
   return leader_elect;
 }
 
-double get_prob(){}
+// double get_prob(){}
 
 
 int main(int argc, char *argv[]) {
@@ -65,6 +68,9 @@ int main(int argc, char *argv[]) {
   MPI_Init(&argc, &argv);
   MPI_Comm_size(comm, &np);
   MPI_Comm_rank(comm, &myrank);
+
+  MPI_Comm_set_errhandler(comm,MPI_ERRORS_RETURN); // return info about errors
+  char err_buffer[256];
 
   // determine command line options
   while ((opt=getopt(argc,argv,"c:m:t:"))!= EOF) {
@@ -106,23 +112,22 @@ int main(int argc, char *argv[]) {
     printf("\n*******************************************************************\n\n");
   }
 
-  // srand(get_PRNG_seed());   // HINT: COMMENT THIS LINE UNTIL YOU ARE SURE THAT YOUR CODE IS CORRECT. THIS WILL AID IN THE DEBUGGING PROCESS
+  srand(get_PRNG_seed());   // HINT: COMMENT THIS LINE UNTIL YOU ARE SURE THAT YOUR CODE IS CORRECT. THIS WILL AID IN THE DEBUGGING PROCESS
   
-  MPI_Status status;
-  MPI_Request request;
   int mytoken = -1;
   // YOUR CODE FOR SETTING UP succ and pred GOES HERE
   int succ = (myrank + 1) % np; // succ = successor on ring;
   int pred = (myrank + np - 1) % np; // pred = predecessor on ring
   int recv_size;
-  int round = 1;
+  int round;
   int msg[2];
+  int error = -1000, errclass, resultlen; // used to retrieve any MPI status codes and messages
 
-  for (round = 0; round < MAX_ROUNDS; round++) {
+  for (round = 1; round <= MAX_ROUNDS; round++) {
     if (myrank == current_leader) {
       printf("\n*********************************** ROUND %d ******************************************\n", round);
+      mytoken = generate_token();
       if (try_leader_elect()) {
-        mytoken = generate_token();
         printf("\n[rank %d][%d] New leader started\ttoken: %d\n", myrank, round, mytoken);
         fflush(stdout);
         msg[0] = myrank;
@@ -135,7 +140,8 @@ int main(int argc, char *argv[]) {
       } else {
         // Otherwise, send a periodic HELLO message around the ring
         msg[0] = HELLO_MSG;
-        MPI_Send(&msg[0], 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
+        msg[1] = mytoken;
+        MPI_Send(&msg, 2, MPI_INT, succ, HELLO_MSG_TAG, comm);
         printf("\n[rank %d][%d] SENT HELLO MSG to node %d with TOKEN = %d, tag = %d\n", myrank, round, succ, mytoken, HELLO_MSG_TAG);
         fflush(stdout);
       }
@@ -143,23 +149,31 @@ int main(int argc, char *argv[]) {
       // Now FIRST issue a speculative MPI_IRecv() to receive data back
       int recv_buf[2];
       int flag = 0;    // Will keep track of whether a message was received before time out
-      double startTime = MPI_Wtime();
       MPI_Status lStatus;
       MPI_Request lRequest;
       
       // int MPI_Irecv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Request *request)
       MPI_Irecv(&recv_buf, recv_size, MPI_INT, pred, MPI_ANY_TAG, comm, &lRequest);
       // Next, you need to check if time out has occured. If time out, then you need to cancel the earlier issued speculative MPI_Irecv. 
+      double startTime = MPI_Wtime();
       while(!flag) {
         // int MPI_Test(MPI_Request *request, int *flag, MPI_Status *status)
-        MPI_Test(&lRequest, &flag, &lStatus);
+        error = MPI_Test(&lRequest, &flag, &lStatus);
+        if(error != MPI_SUCCESS) {
+          MPI_Error_class(error,&errclass);
+          MPI_Error_string(error,err_buffer,&resultlen);
+          fprintf(stdout,err_buffer);
+          fflush(stdout);
+          MPI_Abort(comm, error);
+          exit(errclass);
+        }
         if((MPI_Wtime() - startTime) >= TIME_OUT_INTERVAL)
           break;
       }
       
       // We receive the message from predecessor node and decide appropriate action based on the message TAG
       if (flag) {    
-        switch (status.MPI_TAG) {
+        switch (lStatus.MPI_TAG) {
           case HELLO_MSG_TAG:
             // If HELLO MSG received, do nothing
             printf("\n[rank %d][%d] HELLO MESSAGE completed ring traversal!\n", myrank, round);
@@ -189,7 +203,8 @@ int main(int argc, char *argv[]) {
       int recv_buf[2];
       MPI_Status nStatus;
       MPI_Request nRequest;
-
+      printf("\n\t[rank %d][%d] Checking for timeout.\n", myrank, round);
+      fflush(stdout);
       if (is_not_timeout(MPI_Wtime(), pred, &nStatus)) {
         // You want to first receive the message so as to remove it from the MPI Buffer 
         // Then determine action depending on the message Tag field
@@ -201,8 +216,10 @@ int main(int argc, char *argv[]) {
         if (nStatus.MPI_TAG == HELLO_MSG_TAG) {
           // Forward the message to next node
           // With a probability 'p', forward the message to next node
+          double p = get_prob();
+          
           // This simulates link or node failure in a distributed system
-          if(get_prob() > TX_PROB) {
+          if(p > TX_PROB) {
             MPI_Send(&recv_buf[0], 1, MPI_INT, succ, HELLO_MSG_TAG, comm);
             printf("\n\t[rank %d][%d] Received and Forwarded HELLO MSG to next node = %d\n", myrank, round, succ);
             fflush(stdout);
@@ -210,11 +227,13 @@ int main(int argc, char *argv[]) {
             printf("\n\t[rank %d][%d] Not doing anything. This simulates link or node failure in a distributed system.\n", myrank, round);
             fflush(stdout);
           }
-        } else if (status.MPI_TAG == LEADER_ELECTION_MSG_TAG) {
+        } else if (nStatus.MPI_TAG == LEADER_ELECTION_MSG_TAG) {
           // Fist probabilistically see if wants to become a leader.
           if (get_prob() > TX_PROB) {
             // If yes, then generate own token and test if can become leader.
             mytoken = generate_token();
+            printf("\n\t[rank %d][%d] mytoken: %d\trecv_buf[1]: %d\n", myrank, round, mytoken, recv_buf[1]);
+            fflush(stdout);
             if ((mytoken > recv_buf[1]) || ((mytoken == recv_buf[1]) && (myrank > recv_buf[0]))) {
               // If can become leader, then update the LEADER ELECTION Message appropriately and retransmit to next node
               msg[0] = myrank;
@@ -237,24 +256,31 @@ int main(int argc, char *argv[]) {
 
           // Forward the LEADER ELECTION Message
           MPI_Send(&msg, 2, MPI_INT, succ, LEADER_ELECTION_MSG_TAG, comm);
-          printf("\n\t[rank %d][%d] Sent LEADER_ELECTION_MSG_TAG Msg to node %d with TOKEN = %d\n", myrank, round, succ, recv_buf[1]);
-          
-          
+          printf("\n\t[rank %d][%d] Sent LEADER_ELECTION_MSG_TAG Msg to node %d with TOKEN = %d\n", myrank, round, succ, msg[1]);
+          fflush(stdout);
           // Forward the LEADER ELECTION RESULT MESSAGE
           // int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag, MPI_Comm comm, MPI_Status *status)
-          MPI_Recv(&recv_buf, recv_size, MPI_INT, pred, LEADER_ELECTION_RESULT_MSG_TAG, comm, &status);
+          MPI_Recv(&recv_buf, recv_size, MPI_INT, pred, LEADER_ELECTION_RESULT_MSG_TAG, comm, &nStatus);
           // Finally, wait to hear from current leader who will be the next leader
-          printf("\n\t[rank %d][%d] NEW LEADER :: node %d with TOKEN = %d\n", myrank, round, current_leader, recv_buf[1]);
+          printf("\n\t[rank %d][%d] NEW LEADER :: node %d with TOKEN = %d\n", myrank, round, recv_buf[0], recv_buf[1]);
           fflush(stdout);
           current_leader = recv_buf[0];
+          msg[0] = current_leader;
+          msg[1] = recv_buf[1];
+          MPI_Send(&msg, 2, MPI_INT, succ, LEADER_ELECTION_RESULT_MSG_TAG, comm);
+          printf("\n\t[rank %d][%d] Sent LEADER_ELECTION_RESULT_MSG_TAG Msg to node %d with TOKEN = %d\n", myrank, round, succ, msg[1]);
+          fflush(stdout);
         } 
-      } 
+      } else {
+        printf("\n\t[rank %d][%d] Timeout occured.\n", myrank, round);
+        fflush(stdout);
+      }
     }
     // Finally hit barrier for synchronization of all nodes before starting new round of message sending
     MPI_Barrier(comm);
   }
   printf("\n** Leader for NODE %d = %d\n", myrank, current_leader);
-
+  fflush(stdout);
   // Finalize MPI for clean exit
   MPI_Finalize();
   return 0;
