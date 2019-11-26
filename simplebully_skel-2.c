@@ -169,7 +169,9 @@ int main(int argc, char *argv[]) {
             // If LEADER ELECTION message, then determine who is the new leader and send out a new leader notification message
             current_leader = recv_buf[0];
             // Send a new leader message
-            // TODO
+            msg[0] = current_leader;
+            msg[1] = recv_buf[1];
+            MPI_Send(&msg, 2, MPI_INT, succ, LEADER_ELECTION_RESULT_MSG_TAG, comm);
             printf("\n[rank %d][%d] NEW LEADER FOUND! new leader = %d, with token = %d\n", myrank, round, current_leader, recv_buf[1]);
             fflush(stdout);
             break;
