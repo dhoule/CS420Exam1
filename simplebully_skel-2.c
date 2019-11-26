@@ -210,12 +210,11 @@ int main(int argc, char *argv[]) {
           }
         } else if (status.MPI_TAG == LEADER_ELECTION_MSG_TAG) {
           // Fist probabilistically see if wants to become a leader.
-          // If yes, then generate own token and test if can become leader.
-          mytoken = generate_token();
-          // If can become leader, then update the LEADER ELECTION Message appropriately and retransmit to next node
-          
           if (get_prob() > TX_PROB) {
+            // If yes, then generate own token and test if can become leader.
+            mytoken = generate_token();
             if ((mytoken > recv_buf[1]) || ((mytoken == recv_buf[1]) && (myrank > recv_buf[0]))) {
+              // If can become leader, then update the LEADER ELECTION Message appropriately and retransmit to next node
               msg[0] = myrank;
               msg[1] = mytoken;
               printf("\n\t[rank %d][%d] My new TOKEN = %d\n", myrank, round, mytoken);
